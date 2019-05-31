@@ -89,6 +89,7 @@ def get_frequency_from_x(x):
     q = 1.0594630944
     return base * (q **n_tones_from_base)
 
+
 previous_frequency = 440
 executor = ThreadPoolExecutor(max_workers=150)
 
@@ -107,6 +108,8 @@ while True:
 
     # handle the frame from VideoCapture or VideoStream
     frame = frame[1] if args.get("video", False) else frame
+    for x in range(75,600,75):
+        cv2.line(frame, (x, 0), (x, 600), (255,0,0))
 
     # if we are viewing a video and we did not grab a frame,
     # then we have reached the end of the video
@@ -150,7 +153,7 @@ while True:
             cv2.circle(frame, (int(x), int(y)), int(radius),
                        (0, 255, 255), 2)
             cv2.circle(frame, center, 5, (0, 0, 255), -1)
-            print(center)
+            # print(center)
 
             # player.play_forever()
 
