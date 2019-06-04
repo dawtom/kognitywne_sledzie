@@ -46,27 +46,6 @@ step_duration = 0.5  # Time (seconds) to play at each step
 
 generator = ToneGenerator()
 another_generator = ToneGenerator()
-class Player():
-    def __init__(self):
-        self.keep_playing = True
-        self.is_playing = False
-
-    def play(self, frequency):
-        generator.play(frequency, step_duration, amplitude)
-        while (generator.is_playing()):
-            pass
-
-
-player = Player()
-
-
-def play_loop(frequency):
-    thr = threading.Thread(target=player.play, args=(frequency,))
-    thr.run()
-
-    player.is_playing = True
-    time.sleep(0.35)
-    player.is_playing = False
 
 
 def get_frequency_from_x(x_coordinate, y_coordinate):
@@ -96,7 +75,6 @@ def play(frequency):#, amp):
     generator = ToneGenerator()
     print(frequency)
     generator.play(frequency[0], 0.1, amplitude)
-    # print("Played")
     while generator.is_playing():
         pass
 
