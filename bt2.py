@@ -1,6 +1,5 @@
 # import the necessary packages
 import threading
-import winsound
 from collections import deque
 from concurrent.futures import ThreadPoolExecutor
 
@@ -51,25 +50,15 @@ class Player():
     def __init__(self):
         self.keep_playing = True
         self.is_playing = False
+
     def play(self, frequency):
         generator.play(frequency, step_duration, amplitude)
         while (generator.is_playing()):
             pass
-    # def play_forever(self):
-    #     self.keep_playing = True
-    #     if not self.is_playing:
-    #         self.is_playing = True
-    #         while(True):
-    #             if self.keep_playing:
-    #                 threading.Thread(target=self.play, args=(self.frequency,)).start()
-    #             else:
-    #                 break
-    #             time.sleep(0.2)
-    # def stop_playing(self):
-    #     self.keep_playing = False
-    #     self.is_playing = False
+
 
 player = Player()
+
 
 def play_loop(frequency):
     thr = threading.Thread(target=player.play, args=(frequency,))
@@ -78,22 +67,32 @@ def play_loop(frequency):
     player.is_playing = True
     time.sleep(0.35)
     player.is_playing = False
-# keep looping
-def get_frequency_from_x(x):
+
+
+def get_frequency_from_x(x_coordinate, y_coordinate):
     octaves_number = 2.0
     xmin = 0.0
     xmax = 600.0
-    x_to_octaves = ((float(x * octaves_number))/xmax)
+    x_to_octaves = ((float(x_coordinate * octaves_number))/xmax)
     n_tones_from_base = int(x_to_octaves * 12.0)
     base = 220.0
     q = 1.0594630944
-    return base * (q **n_tones_from_base)
+
+    amplitude_base = 0.25
+    amplitude_max = 1.5
+    ymin = 0.0
+    ymax = 400.0
+    print('y: ', y_coordinate)
+    amplitude_ = 0.003125 * y_coordinate + 0.25 + 2
+    print(amplitude_)
+    return base * (q ** n_tones_from_base), amplitude_
 
 
 previous_frequency = 440
 executor = ThreadPoolExecutor(max_workers=150)
 
-def play(frequency):
+
+def play(frequency):#, amp):
     generator = ToneGenerator()
     print(frequency)
     generator.play(frequency[0], 0.1, amplitude)
@@ -108,8 +107,9 @@ while True:
 
     # handle the frame from VideoCapture or VideoStream
     frame = frame[1] if args.get("video", False) else frame
+    #cv2.line(frame, (600, 0), (600, 600), (255, 0, 0))
     for x in range(75,600,75):
-        cv2.line(frame, (x, 0), (x, 600), (255,0,0))
+        cv2.line(frame, (x, 0), (x, 600), (255, 0, 0))
 
     # if we are viewing a video and we did not grab a frame,
     # then we have reached the end of the video
@@ -153,23 +153,10 @@ while True:
             cv2.circle(frame, (int(x), int(y)), int(radius),
                        (0, 255, 255), 2)
             cv2.circle(frame, center, 5, (0, 0, 255), -1)
-            # print(center)
 
-            # player.play_forever()
-
-
-        frequency = get_frequency_from_x(center[0])
+        frequency, amplitude_ = get_frequency_from_x(center[0], center[1])
+        #, amplitude_)
         p = executor.submit(play, (frequency,))
-        # thr = threading.Thread(target=play_loop, args=(frequency,))
-        # thr.start()
-        # previous_frequency = frequency
-        # if not player.is_playing:
-        #     thr = threading.Thread(target=play_loop, args=(frequency,))
-        #     thr.start()
-            # thr.join()
-
-
-
 
 
     # update the points queue
