@@ -1,18 +1,18 @@
-# import the necessary packages
-import threading
 from collections import deque
 from concurrent.futures import ThreadPoolExecutor
-
 from imutils.video import VideoStream
+from audiogen import ToneGenerator
 import numpy as np
 import argparse
 import cv2
 import imutils
 import time
+import ctypes
+
+user32 = ctypes.windll.user32
+screensize = user32.GetSystemMetrics(0), user32.GetSystemMetrics(1)
 
 # construct the argument parse and parse the arguments
-from audiogen import ToneGenerator
-
 ap = argparse.ArgumentParser()
 ap.add_argument("-v", "--video",
                 help="path to the (optional) video file")
@@ -21,14 +21,14 @@ ap.add_argument("-b", "--buffer", type=int, default=64,
 args = vars(ap.parse_args())
 
 # define the lower and upper boundaries of the "green"
-# ball in the HSV color space, then initialize the
-# list of tracked points
+# ball in the HSV color space, then initialize the list of tracked points
 greenLower = (25, 100, 50)
 greenUpper = (70, 200, 200)
 pts = deque(maxlen=args["buffer"])
+full_screen_frame_width = screensize[0]
+full_screen_frame_height = screensize[1]
 
-# if a video path was not supplied, grab the reference
-# to the webcam
+# if a video path was not supplied, grab the reference to the webcam
 if not args.get("video", False):
     vs = VideoStream(src=0).start()
 
@@ -39,11 +39,7 @@ else:
 # allow the camera or video file to warm up
 time.sleep(2.0)
 tmp_time = time.time()
-
-
 amplitude = 3  # Amplitude of the waveform
-step_duration = 0.5  # Time (seconds) to play at each step
-
 generator = ToneGenerator()
 another_generator = ToneGenerator()
 
@@ -51,30 +47,27 @@ another_generator = ToneGenerator()
 def get_frequency_from_x(x_coordinate, y_coordinate):
     octaves_number = 2.0
     xmin = 0.0
-    xmax = 600.0
+    xmax = full_screen_frame_width
     x_to_octaves = ((float(x_coordinate * octaves_number))/xmax)
     n_tones_from_base = int(x_to_octaves * 12.0)
     base = 220.0
     q = 1.0594630944
 
-    amplitude_base = 0.25
-    amplitude_max = 1.5
-    ymin = 0.0
-    ymax = 400.0
-    print('y: ', y_coordinate)
-    amplitude_ = 0.003125 * y_coordinate + 0.25 + 2
+    amplitude_ = (-0.00225) * y_coordinate + 1
     print(amplitude_)
     return base * (q ** n_tones_from_base), amplitude_
 
 
 previous_frequency = 440
-executor = ThreadPoolExecutor(max_workers=150)
+executor = ThreadPoolExecutor(max_workers=50)
 
 
-def play(frequency):#, amp):
+def play(frequency, amp):
     generator = ToneGenerator()
     print(frequency)
-    generator.play(frequency[0], 0.1, amplitude)
+    print(amp)
+    generator.play(frequency[0], 0.5, amp)
+
     while generator.is_playing():
         pass
 
@@ -85,18 +78,28 @@ while True:
 
     # handle the frame from VideoCapture or VideoStream
     frame = frame[1] if args.get("video", False) else frame
-    #cv2.line(frame, (600, 0), (600, 600), (255, 0, 0))
-    for x in range(75,600,75):
-        cv2.line(frame, (x, 0), (x, 600), (255, 0, 0))
+
+    soundNames = ['c', 'c#', 'd', 'd#', 'e', 'f', 'f#', 'g', 'g#', 'a', 'a#', 'h', 'c']
+    step = int(full_screen_frame_width / 13)
+    xPosition = int(0.30 * step)
+    tmp = 0
+
+    frame = imutils.resize(frame, width=full_screen_frame_width, height=full_screen_frame_height)
+
+    while tmp < full_screen_frame_width:
+        cv2.line(frame, (tmp, 0), (tmp, frame.shape[1]), (255, 0, 0))
+        tmp += step
+
+    for soundName in soundNames:
+        cv2.putText(frame, soundName, (xPosition, 70), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
+        xPosition += step
 
     # if we are viewing a video and we did not grab a frame,
     # then we have reached the end of the video
     if frame is None:
         break
 
-    # resize the frame, blur it, and convert it to the HSV
-    # color space
-    frame = imutils.resize(frame, width=600)
+    # blur the image, and convert it to the HSV color space
     blurred = cv2.GaussianBlur(frame, (11, 11), 0)
     hsv = cv2.cvtColor(blurred, cv2.COLOR_BGR2HSV)
 
@@ -107,18 +110,16 @@ while True:
     mask = cv2.erode(mask, None, iterations=2)
     mask = cv2.dilate(mask, None, iterations=2)
     # find contours in the mask and initialize the current
-    # (x, y) center of the ball
+    # (x, y) center of the object
     cnts = cv2.findContours(mask.copy(), cv2.RETR_EXTERNAL,
                             cv2.CHAIN_APPROX_SIMPLE)
     cnts = imutils.grab_contours(cnts)
     center = None
-    # cv2.line(frame, (10,0), (10,400), (255,0,0))
-    # only proceed if at least one contour was found
 
+    # only proceed if at least one contour was found
     if len(cnts) > 0:
         # find the largest contour in the mask, then use
-        # it to compute the minimum enclosing circle and
-        # centroid
+        # it to compute the minimum enclosing circle and centroid
         c = max(cnts, key=cv2.contourArea)
         ((x, y), radius) = cv2.minEnclosingCircle(c)
         M = cv2.moments(c)
@@ -133,9 +134,7 @@ while True:
             cv2.circle(frame, center, 5, (0, 0, 255), -1)
 
         frequency, amplitude_ = get_frequency_from_x(center[0], center[1])
-        #, amplitude_)
-        p = executor.submit(play, (frequency,))
-
+        p = executor.submit(play, (frequency,), amplitude_)
 
     # update the points queue
     pts.appendleft(center)
@@ -152,11 +151,13 @@ while True:
         cv2.line(frame, pts[i - 1], pts[i], (0, 0, 255), thickness)
 
     # show the frame to our screen
-    cv2.imshow("Frame", frame)
+    cv2.namedWindow('Piano Tiles', cv2.WND_PROP_FULLSCREEN)
+    cv2.setWindowProperty("Piano Tiles", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+    cv2.imshow("Piano Tiles", frame)
     key = cv2.waitKey(1) & 0xFF
 
-    # if the 'q' key is pressed, stop the loop
-    if key == ord("q"):
+    # if the 'q' or 'escape' key is pressed, stop the loop
+    if key == ord("q") or key == 27:
         break
 
 # if we are not using a video file, stop the camera video stream

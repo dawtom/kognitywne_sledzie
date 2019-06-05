@@ -1,12 +1,8 @@
-import random
-import threading
 import time
-from concurrent.futures import ThreadPoolExecutor
 
 import numpy
 import pyaudio
 import math
-
 
 
 class ToneGenerator(object):
