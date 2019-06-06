@@ -27,6 +27,7 @@ greenUpper = (70, 200, 200)
 pts = deque(maxlen=args["buffer"])
 full_screen_frame_width = screensize[0]
 full_screen_frame_height = screensize[1]
+step = int(full_screen_frame_width / 13)
 
 # if a video path was not supplied, grab the reference to the webcam
 if not args.get("video", False):
@@ -42,6 +43,7 @@ tmp_time = time.time()
 amplitude = 3  # Amplitude of the waveform
 generator = ToneGenerator()
 another_generator = ToneGenerator()
+executor = ThreadPoolExecutor(max_workers=50)
 
 
 def get_frequency_from_x(x_coordinate, y_coordinate):
@@ -50,23 +52,22 @@ def get_frequency_from_x(x_coordinate, y_coordinate):
     xmax = full_screen_frame_width
     x_to_octaves = ((float(x_coordinate * octaves_number))/xmax)
     n_tones_from_base = int(x_to_octaves * 12.0)
-    base = 220.0
+    base = 261.6 #C
     q = 1.0594630944
 
     amplitude_ = (-0.00225) * y_coordinate + 1
     print(amplitude_)
-    return base * (q ** n_tones_from_base), amplitude_
+    #return base * (q ** n_tones_from_base), amplitude_
+    n_tones_from_base = int(x_coordinate / step)
 
-
-previous_frequency = 440
-executor = ThreadPoolExecutor(max_workers=50)
+    return base * (q ** n_tones_from_base), 1
 
 
 def play(frequency, amp):
     generator = ToneGenerator()
     print(frequency)
     print(amp)
-    generator.play(frequency[0], 0.5, amp)
+    generator.play(frequency[0], 0.1, amp)
 
     while generator.is_playing():
         pass
